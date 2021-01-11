@@ -23,6 +23,7 @@ public class Person implements Supplier<Person> {
 
     @Override
     public Person get() {
+        int a=1/0;
         return this;
     }
 }

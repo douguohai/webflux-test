@@ -6,9 +6,10 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Period;
 import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 /**
  * @version : 1.0
@@ -45,46 +46,49 @@ public class TestController {
 
     @GetMapping("/fromFuture")
     public Mono<Person> fromFuture() {
+        return Mono.fromFuture(CompletableFuture.<Person>supplyAsync(new Supplier<Person>() {
 
-        CompletableFuture<Person> completableFuture = CompletableFuture.supplyAsync(getData());
+            @Override
+            public Person get() {
+//                int a = 1 / 0;
+                return Person.builder().name("窦国海").age(100).build();
+            }
+        })
+                .thenApply(o -> {
+                    System.out.println(o);
+                    return o;
+                }).exceptionally((m) -> {
+                    m.printStackTrace();
+                    return Person.builder().name("exception").age(100).build();
+                }));
 
-        completableFuture.whenCompleteAsync((o,e)->{
-            e.printStackTrace();
+    }
+
+
+    @GetMapping("/delay")
+    public Mono<Integer> delay() {
+        Flux<Integer> flux = Flux.range(1, 100).map(integer -> {
+            if (integer > 100) {
+                throw new RuntimeException("sha diao");
+            }
+            return integer;
         });
+        flux.subscribe(System.out::println, System.out::println, () -> System.out.println("Done"));
+        return Mono.empty();
+    }
 
-        completableFuture.thenAccept(o->{
-            o.toString();
-        });
-
-        completableFuture.thenAcceptAsync(e->{
-           e.toString();
-        });
-
-        completableFuture.exceptionally(m -> {
-            System.out.println(m);
-            return Person.builder().name("exception").age(100).build();
-        });
-
-//        return Mono.fromFuture(CompletableFuture.<Person>supplyAsync(getData())
-//                .thenApply(o -> {
-//                    System.out.println(o);
-//                    return o;
-//                }).exceptionally((m) -> {
-//                    m.printStackTrace();
-//                    return Person.builder().name("exception").age(100).build();
-//                }));
-
+    @GetMapping("/generate")
+    public Mono<Integer> generate() {
+        Flux<String> flux = Flux.generate(() -> 0, (state, sink) -> {
+            sink.next("3 x " + state + " = " + 3 * state);
+            if (state == 100) {
+                sink.complete();
+            }
+            return state + 1;
+        }, (state) -> System.out.println("state: " + state));
+        flux.subscribe(System.out::println);
         return null;
     }
 
-    static Person getData() {
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-//        int a = 1 / 0;
-        return Person.builder().name("窦国海").age(100).build();
-    }
 
 }
